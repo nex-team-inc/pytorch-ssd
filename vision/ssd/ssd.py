@@ -100,11 +100,15 @@ class SSD(nn.Module):
     def compute_header(self, i, x):
         confidence = self.classification_headers[i](x)
         confidence = confidence.permute(0, 2, 3, 1).contiguous()
-        confidence = confidence.view(confidence.size(0), -1, self.num_classes)
+
+        batch_size = x.size(0)
+        feature_h, feature_w = confidence.size(1), confidence.size(2)
+        num_boxes = feature_h * feature_w * 6  # 6 boxes per feature point
+        confidence = confidence.reshape(batch_size, num_boxes, self.num_classes) # Use explicit reshape instead of view
 
         location = self.regression_headers[i](x)
         location = location.permute(0, 2, 3, 1).contiguous()
-        location = location.view(location.size(0), -1, 4)
+        location = location.reshape(batch_size, num_boxes, 4) # Use explicit reshape instead of view
 
         return confidence, location
 
