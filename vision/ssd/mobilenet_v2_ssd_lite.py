@@ -22,8 +22,13 @@ def SeperableConv2d(in_channels, out_channels, kernel_size=1, stride=1, padding=
 
 
 def create_mobilenetv2_ssd_lite(num_classes, width_mult=1.0, use_batch_norm=True, onnx_compatible=False, is_test=False, input_size=300):
+    if config.image_size != input_size:
+        print(f"Warning: config.image_size ({config.image_size}) doesn't match input_size ({input_size})")
+        print(f"Updating config.image_size to {input_size}")
+        config.image_size = input_size
+
     base_net = MobileNetV2(width_mult=width_mult, use_batch_norm=use_batch_norm,
-                           onnx_compatible=onnx_compatible).features
+                           onnx_compatible=onnx_compatible, input_size=input_size).features
 
     source_layer_indexes = [
         GraphPath(14, 'conv', 3),
@@ -54,11 +59,6 @@ def create_mobilenetv2_ssd_lite(num_classes, width_mult=1.0, use_batch_norm=True
         SeperableConv2d(in_channels=256, out_channels=6 * num_classes, kernel_size=3, padding=1),
         Conv2d(in_channels=64, out_channels=6 * num_classes, kernel_size=1),
     ])
-
-    if config.image_size != input_size:
-        print(f"Warning: config.image_size ({config.image_size}) doesn't match input_size ({input_size})")
-        print(f"Updating config.image_size to {input_size}")
-        config.image_size = input_size
 
     return SSD(num_classes, base_net, source_layer_indexes,
                extras, classification_headers, regression_headers, is_test=is_test, config=config)
