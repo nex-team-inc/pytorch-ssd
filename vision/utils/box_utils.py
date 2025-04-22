@@ -8,6 +8,53 @@ SSDBoxSizes = collections.namedtuple('SSDBoxSizes', ['min', 'max'])
 
 SSDSpec = collections.namedtuple('SSDSpec', ['feature_map_size', 'shrinkage', 'box_sizes', 'aspect_ratios'])
 
+def generate_ssd_specs(image_size):
+    """
+    Automatically generate SSD specs based on input image size
+    THE FUNCTION IS NEEDED TO BE FIXED
+
+    Args:
+        image_size: Tuple of (width, height) or single integer for square
+
+    Returns:
+        List of SSDSpec objects
+    """
+    if isinstance(image_size, tuple):
+        width, height = image_size
+        min_dim = min(width, height)
+    else:
+        width = height = min_dim = image_size
+
+    # Define standard shrinkage progression (consistent with SSD architecture)
+    shrinkages = [16, 32, 64, 128, min(width, height)//2, min(width, height)]
+
+    min_scale = 0.2  # Start at 20% of min dimension
+    max_scale = 0.95  # End at 95% of min dimension
+
+    scales = []
+    for i in range(len(shrinkages) + 1):
+        scale = min_scale + (max_scale - min_scale) * i / len(shrinkages)
+        scales.append(scale * min_dim)
+
+    # Create SSDSpecs
+    specs = []
+    for i, shrinkage in enumerate(shrinkages):
+        # Calculate feature map size based on height (width calculated internally)
+        feature_map_height = height // shrinkage
+
+        min_size = scales[i]
+        max_size = scales[i + 1]
+
+        specs.append(
+            SSDSpec(
+                feature_map_height,  # feature map height
+                shrinkage,           # shrinkage factor
+                SSDBoxSizes(min_size, max_size),  # box sizes (min, max)
+                [2, 3]               # standard aspect ratios
+            )
+        )
+
+    return specs
 
 def generate_ssd_priors(specs: List[SSDSpec], image_size, clamp=True) -> torch.Tensor:
     """Generate SSD Prior Boxes.
