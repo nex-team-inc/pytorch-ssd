@@ -8,14 +8,15 @@ SSDBoxSizes = collections.namedtuple('SSDBoxSizes', ['min', 'max'])
 
 SSDSpec = collections.namedtuple('SSDSpec', ['feature_map_size', 'shrinkage', 'box_sizes', 'aspect_ratios'])
 
-def generate_ssd_specs(image_size):
+def generate_ssd_specs(image_size, feature_map_sizes=None):
     """
     Automatically generate SSD specs based on input image size
-    THE FUNCTION IS NEEDED TO BE FIXED
-
+    with option to specify actual feature map sizes from model
+    
     Args:
         image_size: Tuple of (width, height) or single integer for square
-
+        feature_map_sizes: Optional list of actual feature map sizes from model
+        
     Returns:
         List of SSDSpec objects
     """
@@ -24,33 +25,40 @@ def generate_ssd_specs(image_size):
         min_dim = min(width, height)
     else:
         width = height = min_dim = image_size
-
-    # Define standard shrinkage progression (consistent with SSD architecture)
-    shrinkages = [16, 32, 64, 128, min(width, height)//2, min(width, height)]
-
+    
+    # Standard SSD shrinkage progression
+    shrinkages = [16, 32, 64, 128, 256, 512]
+    
+    # Calculate scales using standard formula (from SSD paper)
     min_scale = 0.2  # Start at 20% of min dimension
     max_scale = 0.95  # End at 95% of min dimension
-
+    
+    num_layers = len(shrinkages) if feature_map_sizes is None else len(feature_map_sizes)
+    
     scales = []
-    for i in range(len(shrinkages) + 1):
-        scale = min_scale + (max_scale - min_scale) * i / len(shrinkages)
+    for i in range(num_layers + 1):
+        scale = min_scale + (max_scale - min_scale) * i / num_layers
         scales.append(scale * min_dim)
-
+    
     # Create SSDSpecs
     specs = []
-    for i, shrinkage in enumerate(shrinkages):
-        # Calculate feature map size based on height (width calculated internally)
-        feature_map_height = height // shrinkage
-
+    
+    for i, shrinkage in enumerate(shrinkages[:num_layers]):
+        # If feature map sizes are provided, use those instead of calculating
+        if feature_map_sizes is not None and i < len(feature_map_sizes):
+            fm_size = feature_map_sizes[i]
+        else:
+            fm_size = height // shrinkage
+        
         min_size = scales[i]
         max_size = scales[i + 1]
-
+        
         specs.append(
             SSDSpec(
-                feature_map_height,  # feature map height
-                shrinkage,           # shrinkage factor
-                SSDBoxSizes(min_size, max_size),  # box sizes (min, max)
-                [2, 3]               # standard aspect ratios
+                feature_map_size=fm_size,
+                shrinkage=shrinkage,
+                box_sizes=SSDBoxSizes(min_size, max_size),
+                aspect_ratios=[2, 3]
             )
         )
 
